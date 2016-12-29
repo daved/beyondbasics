@@ -61,20 +61,5 @@ view model =
                 , placeholder "password"
                 ]
                 []
-            , input [ type_ "submit" ]
-                [ text "Login" ]
             ]
         ]
-
-
-
--- main
-
-
-main : Program Never Model Msg
-main =
-    Html.beginnerProgram
-        { model = initModel
-        , update = update
-        , view = view
-        }
