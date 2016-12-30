@@ -4,6 +4,33 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
+import Json.Decode as Jd exposing (..)
+import Json.Decode.Pipeline as Jdp exposing (decode, required, optional)
+
+
+-- records
+
+
+type alias Response =
+    { id : Int
+    , joke : String
+    , categories : List String
+    }
+
+
+responseDecoder : Decoder Response
+responseDecoder =
+    --map3 Response
+    --    (field "id" int)
+    --    (field "joke" string)
+    --    (field "categories" (JDP.list string))
+    --    |> at [ "value" ]
+    decode Response
+        |> Jdp.required "id" int
+        |> Jdp.required "joke" string
+        |> optional "categories" (Jd.list string) []
+        |> at [ "value" ]
+
 
 
 -- model
@@ -30,7 +57,8 @@ randomJoke =
             "http://api.icndb.com/jokes/random"
 
         req =
-            Http.getString url
+            -- Http.getString url
+            Http.get url responseDecoder
 
         cmd =
             Http.send Joke req
@@ -43,15 +71,15 @@ randomJoke =
 
 
 type Msg
-    = Joke (Result Http.Error String)
+    = Joke (Result Http.Error Response)
     | NewJoke
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Joke (Ok joke) ->
-            ( joke, Cmd.none )
+        Joke (Ok res) ->
+            ( toString (res.id) ++ " " ++ res.joke, Cmd.none )
 
         Joke (Err err) ->
             ( (toString err), Cmd.none )
