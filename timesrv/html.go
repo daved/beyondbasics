@@ -48,8 +48,9 @@ func makeHTMLFiles(wsPort string) htmlFiles {
 </style>
 
 <script type="text/javascript">
-function Dump() {
-	this.el = document.getElementById("dump");
+// Dump ...
+function Dump(id) {
+	this.el = document.getElementById(id);
 	this.el.style.height = this.el.offsetWidth+"px";
 	this.el.style.width = this.el.style.height;
 }
@@ -58,14 +59,14 @@ Dump.prototype.updScroll = function() {
 	this.el.scrollTop = this.el.scrollHeight;
 };
 
-Dump.prototype.setVal = function(val) {
+Dump.prototype.SetVal = function(val) {
 	this.el.value = val;
 	this.updScroll();
 };
 
-Dump.prototype.addVal = function(val) {
+Dump.prototype.AddVal = function(val) {
 	if (this.el.value == "") {
-		this.setVal(val);
+		this.SetVal(val);
 		return;
 	}
 
@@ -73,63 +74,67 @@ Dump.prototype.addVal = function(val) {
 	this.updScroll();
 };
 
-var dump;
-
-function setup() {
-	dump = new Dump();
+// WS ...
+function WS(addr, dumpId) {
+	this.dump = new Dump(dumpId);
+	this.Connect(addr);
 }
 
-var ws;
-var addr = "ws://localhost` + wsPort + `/ws/example";
+WS.prototype.Connect = function(addr) {
+	var dump = this.dump;
 
-function startWS() {
-	if (ws != null) {
-		dump.addVal("cmd: connect (err: already connected)");
+	if (this.conn != null) {
+		dump.AddVal("cmd: connect: (err: already connected)");
 		return;
 	}
 
-	dump.setVal("cmd: connect");
+	dump.AddVal("cmd: connect");
 
-	ws = new WebSocket(addr);
-	ws.onopen = function() {
-		dump.addVal("ntc: connected");
+	this.conn = new WebSocket(addr);
+	this.conn.onopen = function() {
+		dump.AddVal("ntc: connected");
 	};
-	ws.onmessage = function(e) {
-		dump.addVal("rcv: " + e.data);
+	this.conn.onmessage = function(e) {
+		dump.AddVal("rcv: " + e.data);
 	};
-	ws.onclose = function() {
-		dump.addVal("ntc: disconnected");
-		ws = null;
+	this.conn.onclose = function() {
+		dump.AddVal("ntc: disconnected");
 	};
-}
+};
 
-function sendWS(cmd) {
-	if (ws == null) {
-		dump.addVal("cmd: send: " + cmd + " (err: not connected)");
+WS.prototype.Send = function(cmd) {
+	if (this.conn == null) {
+		this.dump.AddVal("cmd: send: " + cmd + " (err: not connected)");
 		return;
 	}
 
-	dump.addVal("cmd: send: " + cmd);
-	ws.send(cmd);
-}
+	this.dump.AddVal("cmd: send: " + cmd);
+	this.conn.send(cmd);
+};
 
-function stopWS() {
-	sendWS("quit");
-	//ws.close();
+// globals
+var _ws;
+
+// main
+function main() {
+	var addr = "ws://localhost` + wsPort + `/ws/example";
+	var dumpId = "dump";
+
+	_ws = new WS(addr, dumpId);
 }
 </script>
 
 </head>
 
-<body onload="setup()">
+<body onload="main()">
 
 <div class="box">
 	<div class="buffer">
 		<label for="dump">Data Dump</label>
 		<textarea id="dump"></textarea>
-		<button onclick="stopWS()">Disconnect</button>
-		<button onclick="sendWS('ping')">Ping</button>
-		<button onclick="startWS()">Connect</button>
+		<button onclick="_ws.Send('stop')">Stop</button>
+		<button onclick="_ws.Send('ping')">Ping</button>
+		<button onclick="_ws.Send('start')">Start</button>
 	</div>
 </div>
 

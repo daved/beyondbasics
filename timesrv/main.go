@@ -2,26 +2,15 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
-	"unicode"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/codemodus/norm"
+	"github.com/sirupsen/logrus"
 )
 
-func nrmlzPort(port string) (string, error) {
-	if port[0] != ':' {
-		port = ":" + port
-	}
-
-	for _, v := range port[1:] {
-		if !unicode.IsDigit(v) {
-			return "", fmt.Errorf("val %q not digit in %q", v, port)
-		}
-	}
-
-	return port, nil
-}
+var (
+	log = logrus.New()
+)
 
 func main() {
 	port := ":3000"
@@ -30,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	var err error
-	if port, err = nrmlzPort(port); err != nil {
+	if port, err = norm.Port(port); err != nil {
 		log.Panic(err)
 	}
 
