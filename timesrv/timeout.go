@@ -1,12 +1,25 @@
 package main
 
 import (
+	"encoding/json"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+type timeJSON struct {
+	Time string `json:"time"`
+}
+
+type pingJSON struct {
+	Ping string `json:"ping"`
+}
+
+type sysMsgJSON struct {
+	Msg string `json:"msg"`
+}
 
 type timeOut struct {
 	mu          sync.Mutex
@@ -39,13 +52,18 @@ func (t *timeOut) isOn() bool {
 	return t.on
 }
 
-func (t *timeOut) time() []byte {
-	return []byte(time.Now().Format(time.UnixDate))
+func (t *timeOut) time() string {
+	return time.Now().Format(time.UnixDate)
 }
 
 func (t *timeOut) runOutput(cancel chan struct{}) {
-	err := t.conn.WriteMessage(websocket.TextMessage, []byte("connected"))
+	bs, err := json.Marshal(sysMsgJSON{"connected"})
 	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	if err := t.conn.WriteMessage(websocket.TextMessage, bs); err != nil {
 		log.Infof(t.notFoundMsg, t.id)
 		return
 	}
@@ -59,7 +77,13 @@ func (t *timeOut) runOutput(cancel chan struct{}) {
 				continue
 			}
 
-			if err := t.conn.WriteMessage(websocket.TextMessage, t.time()); err != nil {
+			bs, err := json.Marshal(timeJSON{t.time()})
+			if err != nil {
+				log.Error(err)
+				return
+			}
+
+			if err := t.conn.WriteMessage(websocket.TextMessage, bs); err != nil {
 				log.Infof(t.notFoundMsg, t.id)
 				return
 			}
@@ -69,7 +93,12 @@ func (t *timeOut) runOutput(cancel chan struct{}) {
 
 func (t *timeOut) respMux(val []byte) (bool, []byte) {
 	if reflect.DeepEqual(val, []byte("ping")) {
-		return true, []byte("pong")
+		bs, err := json.Marshal(pingJSON{"pong"})
+		if err != nil {
+			return false, []byte{}
+		}
+
+		return true, bs
 	}
 
 	if reflect.DeepEqual(val, []byte("start")) {

@@ -42,7 +42,6 @@ func (a *wsApp) exampleHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	log.Infof("user #%d connected", id)
-	log.Infof(a.notFoundMsg, id)
 
 	to := newTimeOut(conn, id, a.notFoundMsg)
 	go to.runOutput(cancel)
