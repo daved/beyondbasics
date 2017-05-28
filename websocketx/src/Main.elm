@@ -22,6 +22,7 @@ wsUrl =
 type alias Model =
     { wsDump : String
     , isStreaming : Bool
+    , isConnected : Bool
     }
 
 
@@ -29,6 +30,7 @@ initModel : Model
 initModel =
     { wsDump = ""
     , isStreaming = False
+    , isConnected = False
     }
 
 
@@ -42,7 +44,9 @@ init =
 
 
 type Msg
-    = ToggleStream
+    = Connect
+    | Disconnect
+    | ToggleStream
     | Ping
     | RecvResp String
 
@@ -50,21 +54,33 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ToggleStream ->
-            let
-                mdl =
-                    { model | isStreaming = not model.isStreaming }
+        Connect ->
+            ( { model | isConnected = True }, Cmd.none )
 
-                req =
-                    if model.isStreaming then
-                        "stop"
-                    else
-                        "start"
-            in
-                ( mdl, send wsUrl req )
+        Disconnect ->
+            ( { model | isConnected = False }, Cmd.none )
+
+        ToggleStream ->
+            if model.isConnected then
+                let
+                    mdl =
+                        { model | isStreaming = not model.isStreaming }
+
+                    req =
+                        if model.isStreaming then
+                            "stop"
+                        else
+                            "start"
+                in
+                    ( mdl, send wsUrl req )
+            else
+                ( model, Cmd.none )
 
         Ping ->
-            ( model, send wsUrl "ping" )
+            if model.isConnected then
+                ( model, send wsUrl "ping" )
+            else
+                ( model, Cmd.none )
 
         RecvResp resp ->
             let
@@ -78,8 +94,13 @@ update msg model =
 -- view
 
 
-view : Model -> Html Msg
-view model =
+txtArea : String -> Html msg
+txtArea txt =
+    textarea [ cols 40, rows 40 ] [ text txt ]
+
+
+connView : Model -> Html Msg
+connView model =
     let
         streamBtnLabel =
             if model.isStreaming then
@@ -88,11 +109,27 @@ view model =
                 "Start"
     in
         div []
-            [ textarea [ cols 40, rows 40 ]
-                [ text model.wsDump ]
+            [ txtArea model.wsDump
             , button [ onClick ToggleStream ] [ text streamBtnLabel ]
             , button [ onClick Ping ] [ text "Ping" ]
+            , button [ onClick Disconnect ] [ text "Disconnect" ]
             ]
+
+
+noconnView : Model -> Html Msg
+noconnView model =
+    div []
+        [ txtArea model.wsDump
+        , button [ onClick Connect ] [ text "Connect" ]
+        ]
+
+
+view : Model -> Html Msg
+view model =
+    if model.isConnected then
+        connView model
+    else
+        noconnView model
 
 
 
@@ -113,15 +150,20 @@ decodeResponse resp =
         |> RecvResp
 
 
+
+-- subscriptions
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    --if model.isStreaming then
-    listen wsUrl decodeResponse
+    if model.isConnected then
+        listen wsUrl decodeResponse
+    else
+        Sub.none
 
 
 
---else
---Sub.none
+-- main
 
 
 main : Program Never Model Msg
