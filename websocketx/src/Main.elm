@@ -20,15 +20,15 @@ wsUrl =
 
 
 type alias Model =
-    { dump : String
-    , stream : Bool
+    { wsDump : String
+    , isStreaming : Bool
     }
 
 
 initModel : Model
 initModel =
-    { dump = ""
-    , stream = False
+    { wsDump = ""
+    , isStreaming = False
     }
 
 
@@ -48,12 +48,12 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg mdl =
+update msg model =
     case msg of
         ToggleStream ->
             let
                 req =
-                    if mdl.stream then
+                    if model.isStreaming then
                         "stop"
                     else
                         "start"
@@ -61,20 +61,20 @@ update msg mdl =
                 cmd =
                     send wsUrl req
 
-                stream =
-                    not mdl.stream
+                isStreaming =
+                    not model.isStreaming
             in
-                ( { mdl | stream = stream }, cmd )
+                ( { model | isStreaming = isStreaming }, cmd )
 
         Ping ->
-            ( mdl, (send wsUrl "ping") )
+            ( model, (send wsUrl "ping") )
 
         RecvResp resp ->
             let
-                dump =
-                    mdl.dump ++ "\n" ++ resp
+                wsDump =
+                    model.wsDump ++ "\n" ++ resp
             in
-                ( { mdl | dump = dump }, Cmd.none )
+                ( { model | wsDump = wsDump }, Cmd.none )
 
 
 
@@ -82,17 +82,17 @@ update msg mdl =
 
 
 view : Model -> Html Msg
-view mdl =
+view model =
     let
         streamBtnLabel =
-            if mdl.stream then
+            if model.isStreaming then
                 "Stop"
             else
                 "Start"
     in
         div []
             [ textarea [ cols 40, rows 40 ]
-                [ text mdl.dump ]
+                [ text model.wsDump ]
             , button [ onClick ToggleStream ] [ text streamBtnLabel ]
             , button [ onClick Ping ] [ text "Ping" ]
             ]
@@ -117,12 +117,12 @@ decodeResponse resp =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions mdl =
+subscriptions model =
     listen wsUrl decodeResponse
 
 
 
---if mdl.stream then
+--if model.isStreaming then
 --    listen wsUrl decodeResponse
 --else
 --    Sub.none
