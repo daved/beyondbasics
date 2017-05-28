@@ -2,12 +2,51 @@ module Main exposing (..)
 
 import Html exposing (..)
 import Html.Events exposing (..)
-import Html.Attributes exposing (..)
 import Login
 import LeaderBoard
+import Navigation exposing (..)
 
 
 -- model
+
+
+type Page
+    = LeaderBoardPage
+    | AddRunnerPage
+    | LoginPage
+    | NotFoundPage
+
+
+pageToHash : Page -> String
+pageToHash page =
+    case page of
+        LeaderBoardPage ->
+            "#"
+
+        AddRunnerPage ->
+            "#add"
+
+        LoginPage ->
+            "#login"
+
+        NotFoundPage ->
+            "#notfound"
+
+
+hashToPage : String -> Page
+hashToPage hash =
+    case hash of
+        "" ->
+            LeaderBoardPage
+
+        "#add" ->
+            AddRunnerPage
+
+        "#login" ->
+            LoginPage
+
+        _ ->
+            NotFoundPage
 
 
 type alias Model =
@@ -17,17 +56,21 @@ type alias Model =
     }
 
 
-initModel : Model
-initModel =
-    { page = LeaderBoardPage
+initModel : Page -> Model
+initModel page =
+    { page = page
     , leaderBoard = LeaderBoard.initModel
     , login = Login.initModel
     }
 
 
-type Page
-    = LeaderBoardPage
-    | LoginPage
+init : Location -> ( Model, Cmd Msg )
+init location =
+    let
+        page =
+            hashToPage location.hash
+    in
+        ( initModel page, Cmd.none )
 
 
 
@@ -35,32 +78,38 @@ type Page
 
 
 type Msg
-    = ChangePage Page
+    = Navigate Page
+    | ChangePage Page
     | LeaderBoardMsg LeaderBoard.Msg
     | LoginMsg Login.Msg
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Navigate page ->
+            ( model, newUrl <| pageToHash page )
+
         ChangePage page ->
-            { model
-                | page = page
-            }
+            ( { model | page = page }, Cmd.none )
 
         LeaderBoardMsg lbMsg ->
-            { model
-                | leaderBoard = LeaderBoard.update lbMsg model.leaderBoard
-            }
+            ( { model | leaderBoard = LeaderBoard.update lbMsg model.leaderBoard }, Cmd.none )
 
         LoginMsg lMsg ->
-            { model
-                | login = Login.update lMsg model.login
-            }
+            ( { model | login = Login.update lMsg model.login }, Cmd.none )
 
 
 
 -- view
+
+
+viewPage : String -> Html Msg
+viewPage pageDesc =
+    div []
+        [ h3 [] [ text pageDesc ]
+        , p [] [ text <| "TODO: make " ++ pageDesc ]
+        ]
 
 
 view : Model -> Html Msg
@@ -71,21 +120,24 @@ view model =
                 LeaderBoardPage ->
                     Html.map LeaderBoardMsg (LeaderBoard.view model.leaderBoard)
 
+                AddRunnerPage ->
+                    viewPage "Add Runner Page"
+
                 LoginPage ->
                     Html.map LoginMsg (Login.view model.login)
+
+                NotFoundPage ->
+                    viewPage "Not Found Page"
     in
         div []
-            [ div []
-                [ a
-                    [ href "#"
-                    , onClick (ChangePage LeaderBoardPage)
-                    ]
+            [ header []
+                [ a [ onClick (Navigate LeaderBoardPage) ]
                     [ text "LeaderBoard" ]
-                , span [] [ text " | " ]
-                , a
-                    [ href "#"
-                    , onClick (ChangePage LoginPage)
-                    ]
+                , text " | "
+                , a [ onClick (Navigate AddRunnerPage) ]
+                    [ text "Add Runner" ]
+                , text " | "
+                , a [ onClick (Navigate LoginPage) ]
                     [ text "Login" ]
                 ]
             , hr [] []
@@ -93,10 +145,33 @@ view model =
             ]
 
 
+
+-- subscriptions
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
+
+-- main
+
+
+locationToMsg : Location -> Msg
+locationToMsg location =
+    location.hash
+        |> hashToPage
+        |> ChangePage
+
+
 main : Program Never Model Msg
 main =
-    Html.beginnerProgram
-        { model = initModel
+    Navigation.program locationToMsg
+        { init = init
         , update = update
+        :q
+        :q
         , view = view
+        , subscriptions = subscriptions
         }
