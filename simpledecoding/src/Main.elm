@@ -1,4 +1,4 @@
-module SimpleDecoding exposing (..)
+module Main exposing (..)
 
 import Html exposing (..)
 import Json.Decode exposing (..)
