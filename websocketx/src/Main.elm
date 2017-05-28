@@ -52,29 +52,26 @@ update msg model =
     case msg of
         ToggleStream ->
             let
+                mdl =
+                    { model | isStreaming = not model.isStreaming }
+
                 req =
                     if model.isStreaming then
                         "stop"
                     else
                         "start"
-
-                cmd =
-                    send wsUrl req
-
-                isStreaming =
-                    not model.isStreaming
             in
-                ( { model | isStreaming = isStreaming }, cmd )
+                ( mdl, send wsUrl req )
 
         Ping ->
-            ( model, (send wsUrl "ping") )
+            ( model, send wsUrl "ping" )
 
         RecvResp resp ->
             let
-                wsDump =
-                    model.wsDump ++ "\n" ++ resp
+                mdl =
+                    { model | wsDump = model.wsDump ++ "\n" ++ resp }
             in
-                ( { model | wsDump = wsDump }, Cmd.none )
+                ( mdl, Cmd.none )
 
 
 
@@ -118,14 +115,13 @@ decodeResponse resp =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
+    --if model.isStreaming then
     listen wsUrl decodeResponse
 
 
 
---if model.isStreaming then
---    listen wsUrl decodeResponse
 --else
---    Sub.none
+--Sub.none
 
 
 main : Program Never Model Msg
