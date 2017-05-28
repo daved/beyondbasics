@@ -61,5 +61,8 @@ view model =
                 , placeholder "password"
                 ]
                 []
+            , input
+                [ type_ "submit" ]
+                [ text "Login" ]
             ]
         ]
