@@ -170,8 +170,6 @@ main =
     Navigation.program locationToMsg
         { init = init
         , update = update
-        :q
-        :q
         , view = view
         , subscriptions = subscriptions
         }
