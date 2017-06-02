@@ -107,6 +107,7 @@ type Msg
     | LoginMsg Login.Msg
     | LeaderBoardMsg LeaderBoard.Msg
     | RunnerMsg Runner.Msg
+    | Logout
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -126,10 +127,10 @@ update msg model =
                 loggedIn =
                     token /= Nothing
 
-                saveTokenCmd =
+                storeTokenCmd =
                     case token of
                         Just jwt ->
-                            saveToken jwt
+                            storeToken jwt
 
                         Nothing ->
                             Cmd.none
@@ -141,7 +142,7 @@ update msg model =
                   }
                 , Cmd.batch
                     [ Cmd.map LoginMsg cmd
-                    , saveTokenCmd
+                    , storeTokenCmd
                     ]
                 )
 
@@ -163,6 +164,14 @@ update msg model =
                 , Cmd.map RunnerMsg cmd
                 )
 
+        Logout ->
+            ( { model
+                | token = Nothing
+                , loggedIn = False
+              }
+            , clearToken ()
+            )
+
 
 
 -- view
@@ -174,6 +183,14 @@ viewPage pageDesc =
         [ h3 [] [ text pageDesc ]
         , p [] [ text <| "TODO: make " ++ pageDesc ]
         ]
+
+
+authHeader : Model -> Html Msg
+authHeader model =
+    if model.loggedIn then
+        a [ onClick Logout ] [ text "Logout" ]
+    else
+        a [ onClick (Navigate LoginPage) ] [ text "Login" ]
 
 
 pageHeader : Model -> Html Msg
@@ -189,7 +206,7 @@ pageHeader model =
             ]
         , ul []
             [ li []
-                [ a [ onClick (Navigate LoginPage) ] [ text "Login" ]
+                [ authHeader model
                 ]
             ]
         ]
@@ -245,7 +262,10 @@ subscriptions model =
 -- ports
 
 
-port saveToken : String -> Cmd msg
+port storeToken : String -> Cmd msg
+
+
+port clearToken : () -> Cmd msg
 
 
 
