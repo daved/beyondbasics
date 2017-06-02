@@ -1,7 +1,6 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Html exposing (..)
-import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Login
 import LeaderBoard
@@ -59,11 +58,13 @@ type alias Model =
     , leaderBoard : LeaderBoard.Model
     , login : Login.Model
     , runner : Runner.Model
+    , token : Maybe String
+    , loggedIn : Bool
     }
 
 
-init : Location -> ( Model, Cmd Msg )
-init location =
+init : Flags -> Location -> ( Model, Cmd Msg )
+init flags location =
     let
         page =
             hashToPage location.hash
@@ -82,6 +83,8 @@ init location =
             , login = loginInitModel
             , leaderBoard = leaderBoardInitModel
             , runner = runnerInitModel
+            , token = flags.token
+            , loggedIn = flags.token /= Nothing
             }
 
         cmds =
@@ -117,11 +120,29 @@ update msg model =
 
         LoginMsg msg ->
             let
-                ( loginModel, cmd ) =
+                ( loginModel, cmd, token ) =
                     Login.update msg model.login
+
+                loggedIn =
+                    token /= Nothing
+
+                saveTokenCmd =
+                    case token of
+                        Just jwt ->
+                            saveToken jwt
+
+                        Nothing ->
+                            Cmd.none
             in
-                ( { model | login = loginModel }
-                , Cmd.map LoginMsg cmd
+                ( { model
+                    | login = loginModel
+                    , token = token
+                    , loggedIn = loggedIn
+                  }
+                , Cmd.batch
+                    [ Cmd.map LoginMsg cmd
+                    , saveTokenCmd
+                    ]
                 )
 
         LeaderBoardMsg msg ->
@@ -221,6 +242,13 @@ subscriptions model =
 
 
 
+-- ports
+
+
+port saveToken : String -> Cmd msg
+
+
+
 -- main
 
 
@@ -231,9 +259,14 @@ locationToMsg location =
         |> SetPage
 
 
-main : Program Never Model Msg
+type alias Flags =
+    { token : Maybe String
+    }
+
+
+main : Program Flags Model Msg
 main =
-    Navigation.program locationToMsg
+    Navigation.programWithFlags locationToMsg
         { init = init
         , update = update
         , view = view
