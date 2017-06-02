@@ -18,6 +18,24 @@ type Page
     | AddRunnerPage
 
 
+authPages : List Page
+authPages =
+    [ AddRunnerPage ]
+
+
+authForPage : Page -> Bool -> Bool
+authForPage page loggedIn =
+    loggedIn || not (List.member page authPages)
+
+
+authRedirect : Page -> Bool -> ( Page, Cmd Msg )
+authRedirect page loggedIn =
+    if authForPage page loggedIn then
+        ( page, Cmd.none )
+    else
+        ( LoginPage, Navigation.modifyUrl <| pageToHash LoginPage )
+
+
 pageToHash : Page -> String
 pageToHash page =
     case page of
@@ -69,6 +87,12 @@ init flags location =
         page =
             hashToPage location.hash
 
+        loggedIn =
+            flags.token /= Nothing
+
+        ( redirectedPage, cmd ) =
+            authRedirect page loggedIn
+
         ( loginInitModel, loginCmd ) =
             Login.init
 
@@ -84,7 +108,7 @@ init flags location =
             , leaderBoard = leaderBoardInitModel
             , runner = runnerInitModel
             , token = flags.token
-            , loggedIn = flags.token /= Nothing
+            , loggedIn = loggedIn
             }
 
         cmds =
@@ -92,6 +116,7 @@ init flags location =
                 [ Cmd.map LeaderBoardMsg leaderBoardCmd
                 , Cmd.map LoginMsg loginCmd
                 , Cmd.map RunnerMsg runnerCmd
+                , cmd
                 ]
     in
         ( initModel, cmds )
@@ -117,7 +142,11 @@ update msg model =
             ( model, newUrl <| pageToHash page )
 
         SetPage page ->
-            ( { model | page = page }, Cmd.none )
+            let
+                ( redirectedPage, cmd ) =
+                    authRedirect page model.loggedIn
+            in
+                ( { model | page = redirectedPage }, cmd )
 
         LoginMsg msg ->
             let
@@ -169,7 +198,10 @@ update msg model =
                 | token = Nothing
                 , loggedIn = False
               }
-            , clearToken ()
+            , Cmd.batch
+                [ clearToken ()
+                , Navigation.modifyUrl <| pageToHash LeaderBoardPage
+                ]
             )
 
 
@@ -193,6 +225,14 @@ authHeader model =
         a [ onClick (Navigate LoginPage) ] [ text "Login" ]
 
 
+addRunnerHeader : Model -> Html Msg
+addRunnerHeader { loggedIn } =
+    if loggedIn then
+        a [ onClick (Navigate AddRunnerPage) ] [ text "Add Runner" ]
+    else
+        text ""
+
+
 pageHeader : Model -> Html Msg
 pageHeader model =
     header []
@@ -200,9 +240,7 @@ pageHeader model =
             [ text "Race Results" ]
         , ul []
             [ li []
-                [ a [ onClick (Navigate AddRunnerPage) ]
-                    [ text "Add Runner" ]
-                ]
+                [ addRunnerHeader model ]
             ]
         , ul []
             [ li []
