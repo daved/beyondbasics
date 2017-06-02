@@ -1,49 +1,54 @@
 module Main exposing (..)
 
 import Html exposing (..)
+import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Login
 import LeaderBoard
 import Navigation exposing (..)
+import Runner
 
 
 -- model
 
 
 type Page
-    = LeaderBoardPage
-    | AddRunnerPage
+    = NotFoundPage
     | LoginPage
-    | NotFoundPage
+    | LeaderBoardPage
+    | AddRunnerPage
 
 
 pageToHash : Page -> String
 pageToHash page =
     case page of
-        LeaderBoardPage ->
-            "#"
-
-        AddRunnerPage ->
-            "#add"
+        NotFoundPage ->
+            "#notfound"
 
         LoginPage ->
             "#login"
 
-        NotFoundPage ->
-            "#notfound"
+        LeaderBoardPage ->
+            "#/"
+
+        AddRunnerPage ->
+            "#add"
 
 
 hashToPage : String -> Page
 hashToPage hash =
     case hash of
+        "#login" ->
+            LoginPage
+
+        "#/" ->
+            LeaderBoardPage
+
         "" ->
             LeaderBoardPage
 
         "#add" ->
             AddRunnerPage
-
-        "#login" ->
-            LoginPage
 
         _ ->
             NotFoundPage
@@ -53,14 +58,7 @@ type alias Model =
     { page : Page
     , leaderBoard : LeaderBoard.Model
     , login : Login.Model
-    }
-
-
-initModel : Page -> Model
-initModel page =
-    { page = page
-    , leaderBoard = LeaderBoard.initModel
-    , login = Login.initModel
+    , runner : Runner.Model
     }
 
 
@@ -69,8 +67,31 @@ init location =
     let
         page =
             hashToPage location.hash
+
+        ( loginInitModel, loginCmd ) =
+            Login.init
+
+        ( leaderBoardInitModel, leaderBoardCmd ) =
+            LeaderBoard.init
+
+        ( runnerInitModel, runnerCmd ) =
+            Runner.init
+
+        initModel =
+            { page = page
+            , login = loginInitModel
+            , leaderBoard = leaderBoardInitModel
+            , runner = runnerInitModel
+            }
+
+        cmds =
+            Cmd.batch
+                [ Cmd.map LeaderBoardMsg leaderBoardCmd
+                , Cmd.map LoginMsg loginCmd
+                , Cmd.map RunnerMsg runnerCmd
+                ]
     in
-        ( initModel page, Cmd.none )
+        ( initModel, cmds )
 
 
 
@@ -79,9 +100,10 @@ init location =
 
 type Msg
     = Navigate Page
-    | ChangePage Page
-    | LeaderBoardMsg LeaderBoard.Msg
+    | SetPage Page
     | LoginMsg Login.Msg
+    | LeaderBoardMsg LeaderBoard.Msg
+    | RunnerMsg Runner.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -90,14 +112,35 @@ update msg model =
         Navigate page ->
             ( model, newUrl <| pageToHash page )
 
-        ChangePage page ->
+        SetPage page ->
             ( { model | page = page }, Cmd.none )
 
-        LeaderBoardMsg lbMsg ->
-            ( { model | leaderBoard = LeaderBoard.update lbMsg model.leaderBoard }, Cmd.none )
+        LoginMsg msg ->
+            let
+                ( loginModel, cmd ) =
+                    Login.update msg model.login
+            in
+                ( { model | login = loginModel }
+                , Cmd.map LoginMsg cmd
+                )
 
-        LoginMsg lMsg ->
-            ( { model | login = Login.update lMsg model.login }, Cmd.none )
+        LeaderBoardMsg msg ->
+            let
+                ( leaderBoardModel, cmd ) =
+                    LeaderBoard.update msg model.leaderBoard
+            in
+                ( { model | leaderBoard = leaderBoardModel }
+                , Cmd.map LeaderBoardMsg cmd
+                )
+
+        RunnerMsg msg ->
+            let
+                ( runnerModel, cmd ) =
+                    Runner.update msg model.runner
+            in
+                ( { model | runner = runnerModel }
+                , Cmd.map RunnerMsg cmd
+                )
 
 
 
@@ -112,35 +155,44 @@ viewPage pageDesc =
         ]
 
 
+pageHeader : Model -> Html Msg
+pageHeader model =
+    header []
+        [ a [ onClick (Navigate LeaderBoardPage) ]
+            [ text "Race Results" ]
+        , ul []
+            [ li []
+                [ a [ onClick (Navigate AddRunnerPage) ]
+                    [ text "Add Runner" ]
+                ]
+            ]
+        , ul []
+            [ li []
+                [ a [ onClick (Navigate LoginPage) ] [ text "Login" ]
+                ]
+            ]
+        ]
+
+
 view : Model -> Html Msg
 view model =
     let
         page =
             case model.page of
-                LeaderBoardPage ->
-                    Html.map LeaderBoardMsg (LeaderBoard.view model.leaderBoard)
-
-                AddRunnerPage ->
-                    viewPage "Add Runner Page"
+                NotFoundPage ->
+                    viewPage "Not Found Page"
 
                 LoginPage ->
                     Html.map LoginMsg (Login.view model.login)
 
-                NotFoundPage ->
-                    viewPage "Not Found Page"
+                LeaderBoardPage ->
+                    Html.map LeaderBoardMsg (LeaderBoard.view model.leaderBoard)
+
+                AddRunnerPage ->
+                    Html.map RunnerMsg (Runner.view model.runner)
     in
         div []
-            [ header []
-                [ a [ onClick (Navigate LeaderBoardPage) ]
-                    [ text "LeaderBoard" ]
-                , text " | "
-                , a [ onClick (Navigate AddRunnerPage) ]
-                    [ text "Add Runner" ]
-                , text " | "
-                , a [ onClick (Navigate LoginPage) ]
-                    [ text "Login" ]
-                ]
-            , hr [] []
+            [ pageHeader model
             , page
             ]
 
@@ -151,7 +203,21 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    let
+        loginSub =
+            Login.subscriptions model.login
+
+        leaderBoardSub =
+            LeaderBoard.subscriptions model.leaderBoard
+
+        runnerSub =
+            Runner.subscriptions model.runner
+    in
+        Sub.batch
+            [ Sub.map LoginMsg loginSub
+            , Sub.map LeaderBoardMsg leaderBoardSub
+            , Sub.map RunnerMsg runnerSub
+            ]
 
 
 
@@ -162,7 +228,7 @@ locationToMsg : Location -> Msg
 locationToMsg location =
     location.hash
         |> hashToPage
-        |> ChangePage
+        |> SetPage
 
 
 main : Program Never Model Msg

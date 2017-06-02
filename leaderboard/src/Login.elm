@@ -9,16 +9,23 @@ import Html.Attributes exposing (..)
 
 
 type alias Model =
-    { username : String
+    { error : Maybe String
+    , username : String
     , password : String
     }
 
 
 initModel : Model
 initModel =
-    { username = ""
+    { error = Nothing
+    , username = ""
     , password = ""
     }
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( initModel, Cmd.none )
 
 
 
@@ -26,43 +33,87 @@ initModel =
 
 
 type Msg
-    = UsernameInput String
+    = Error String
+    | UsernameInput String
     | PasswordInput String
+    | Submit
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Error error ->
+            ( { model | error = Just error }, Cmd.none )
+
         UsernameInput username ->
-            { model | username = username }
+            ( { model | username = username }, Cmd.none )
 
         PasswordInput password ->
-            { model | password = password }
+            ( { model | password = password }, Cmd.none )
+
+        Submit ->
+            ( model, Cmd.none )
 
 
 
 -- view
 
 
-view : Model -> Html Msg
-view model =
-    div []
-        [ h3 [] [ text "Login Page... So far" ]
-        , Html.form []
-            [ input
-                [ type_ "text"
-                , onInput UsernameInput
-                , placeholder "username"
+errorPanel : Maybe String -> Html a
+errorPanel error =
+    case error of
+        Nothing ->
+            text ""
+
+        Just msg ->
+            div [ class "error" ] [ text msg ]
+
+
+loginForm : Model -> Html Msg
+loginForm model =
+    Html.form [ class "add-runner", onSubmit Submit ]
+        [ fieldset []
+            [ legend [] [ text "Login" ]
+            , div []
+                [ label [] [ text "User Name" ]
+                , input
+                    [ type_ "text"
+                    , placeholder "username"
+                    , value model.username
+                    , onInput UsernameInput
+                    ]
+                    []
                 ]
-                []
-            , input
-                [ type_ "password"
-                , onInput PasswordInput
-                , placeholder "password"
+            , div []
+                [ label [] [ text "Password" ]
+                , input
+                    [ type_ "password"
+                    , value model.password
+                    , placeholder "password"
+                    , onInput PasswordInput
+                    ]
+                    []
                 ]
-                []
-            , input
-                [ type_ "submit" ]
-                [ text "Login" ]
+            , div []
+                [ label [] []
+                , button [ type_ "submit" ] [ text "Login" ]
+                ]
             ]
         ]
+
+
+view : Model -> Html Msg
+view model =
+    div [ class "main" ]
+        [ errorPanel model.error
+        , loginForm model
+        ]
+
+
+
+-- subscriptions
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
