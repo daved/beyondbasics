@@ -1,13 +1,14 @@
-var flags = {
-    'token': localStorage.getItem('token')
-};
+var TOKEN_KEY = 'token';
+
+var flags = {};
+flags[TOKEN_KEY] = localStorage.getItem(TOKEN_KEY);
 
 var app = Elm.Main.fullscreen(flags);
 
 app.ports.storeToken.subscribe(function(token) {
-    localStorage.setItem('token', token);
+    localStorage.setItem(TOKEN_KEY, token);
 });
 
 app.ports.clearToken.subscribe(function() {
-    localStorage.removeItem('token');
+    localStorage.removeItem(TOKEN_KEY);
 });
