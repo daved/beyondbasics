@@ -4,6 +4,9 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import String
+import Http
+import Json.Encode as JE
+import Json.Decode as JD exposing (field)
 
 
 -- model
@@ -53,6 +56,7 @@ type Msg
     | AgeInput String
     | BibInput String
     | Save
+    | SaveResponse (Result Http.Error String)
 
 
 ageInput : Model -> String -> ( Model, Cmd Msg )
@@ -89,8 +93,129 @@ bibInput model bib =
         ( { model | bibError = bibError, bib = bib }, Cmd.none )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+validateName : Model -> Model
+validateName model =
+    if String.isEmpty model.name then
+        { model | nameError = Just "Name is required." }
+    else
+        { model | nameError = Nothing }
+
+
+validateLocation : Model -> Model
+validateLocation model =
+    if String.isEmpty model.location then
+        { model | locationError = Just "Location is required." }
+    else
+        { model | locationError = Nothing }
+
+
+validateAge : Model -> Model
+validateAge model =
+    let
+        ageInt =
+            model.age
+                |> String.toInt
+                |> Result.withDefault 0
+    in
+        if ageInt <= 0 then
+            { model | ageError = Just "Age must be a positive number." }
+        else
+            { model | ageError = Nothing }
+
+
+validateBib : Model -> Model
+validateBib model =
+    let
+        bibInt =
+            model.bib
+                |> String.toInt
+                |> Result.withDefault 0
+    in
+        if bibInt <= 0 then
+            { model | bibError = Just "Bib must be a positive number." }
+        else
+            { model | bibError = Nothing }
+
+
+validate : Model -> Model
+validate model =
+    model
+        |> validateName
+        |> validateLocation
+        |> validateAge
+        |> validateBib
+
+
+isValid : Model -> Bool
+isValid model =
+    model.nameError
+        == Nothing
+        && model.locationError
+        == Nothing
+        && model.ageError
+        == Nothing
+        && model.bibError
+        == Nothing
+
+
+post : String -> List Http.Header -> Http.Body -> JD.Decoder a -> Http.Request a
+post url headers body decoder =
+    Http.request
+        { method = "POST"
+        , headers = headers
+        , url = url
+        , body = body
+        , expect = Http.expectJson decoder
+        , timeout = Nothing
+        , withCredentials = False
+        }
+
+
+url : String
+url =
+    "http://localhost:5000/runner"
+
+
+runnerEncoder : Model -> JE.Value
+runnerEncoder { name, location, age, bib } =
+    let
+        ageInt =
+            age |> String.toInt |> Result.withDefault 0
+
+        bibInt =
+            bib |> String.toInt |> Result.withDefault 0
+    in
+        JE.object
+            [ ( "name", JE.string name )
+            , ( "location", JE.string location )
+            , ( "age", JE.int ageInt )
+            , ( "bib", JE.int bibInt )
+            ]
+
+
+save : String -> Model -> ( Model, Cmd Msg )
+save token model =
+    let
+        headers =
+            [ Http.header "Authorization" ("Bearer " ++ token) ]
+
+        body =
+            Http.jsonBody <| runnerEncoder model
+
+        decoder =
+            field "_id" JD.string
+
+        req =
+            post url headers body decoder
+
+        cmd =
+            Http.send SaveResponse req
+    in
+        ( model, cmd )
+
+
+update : String -> Msg -> Model -> ( Model, Cmd Msg )
+update token msg model =
     case msg of
         NameInput name ->
             ( { model | nameError = Nothing, name = name }, Cmd.none )
@@ -105,7 +230,29 @@ update msg model =
             bibInput model bib
 
         Save ->
-            ( model, Cmd.none )
+            let
+                updatedModel =
+                    validate model
+            in
+                if isValid updatedModel then
+                    save token updatedModel
+                else
+                    ( updatedModel, Cmd.none )
+
+        SaveResponse (Ok id) ->
+            ( initModel, Cmd.none )
+
+        SaveResponse (Err err) ->
+            let
+                errMsg =
+                    case err of
+                        Http.BadStatus resp ->
+                            resp.body
+
+                        _ ->
+                            "Error while saving."
+            in
+                ( { model | error = Just errMsg }, Cmd.none )
 
 
 
