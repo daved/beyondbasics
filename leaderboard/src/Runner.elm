@@ -12,6 +12,12 @@ import Json.Decode as JD exposing (field)
 -- model
 
 
+type Status
+    = Saving String
+    | Saved String
+    | NotSaved
+
+
 type alias Model =
     { error : Maybe String
     , id : String
@@ -23,6 +29,7 @@ type alias Model =
     , age : String
     , bibError : Maybe String
     , bib : String
+    , status : Status
     }
 
 
@@ -38,6 +45,7 @@ initModel =
     , age = ""
     , bibError = Nothing
     , bib = ""
+    , status = NotSaved
     }
 
 
@@ -211,7 +219,7 @@ save token model =
         cmd =
             Http.send SaveResponse req
     in
-        ( model, cmd )
+        ( { model | status = Saving "Saving runner ..." }, cmd )
 
 
 update : String -> Msg -> Model -> ( Model, Cmd Msg )
@@ -237,10 +245,10 @@ update token msg model =
                 if isValid updatedModel then
                     save token updatedModel
                 else
-                    ( updatedModel, Cmd.none )
+                    ( { updatedModel | status = NotSaved }, Cmd.none )
 
         SaveResponse (Ok id) ->
-            ( initModel, Cmd.none )
+            ( { initModel | status = Saved "Runner saved." }, Cmd.none )
 
         SaveResponse (Err err) ->
             let
@@ -252,7 +260,12 @@ update token msg model =
                         _ ->
                             "Error while saving."
             in
-                ( { model | error = Just errMsg }, Cmd.none )
+                ( { model
+                    | error = Just errMsg
+                    , status = NotSaved
+                  }
+                , Cmd.none
+                )
 
 
 
@@ -317,6 +330,18 @@ viewForm model =
             , div []
                 [ label [] []
                 , button [ type_ "submit" ] [ text "Save" ]
+                , span []
+                    [ text <|
+                        case model.status of
+                            Saving savingMsg ->
+                                savingMsg
+
+                            Saved savedMsg ->
+                                savedMsg
+
+                            NotSaved ->
+                                ""
+                    ]
                 ]
             ]
         ]
