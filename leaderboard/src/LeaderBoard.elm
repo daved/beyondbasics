@@ -111,6 +111,20 @@ wsMessage wsMsg model =
                 "new runner" ->
                     ( { model | runners = runner :: model.runners }, Cmd.none )
 
+                "update runner" ->
+                    let
+                        updatedRunners =
+                            List.map
+                                (\r ->
+                                    if r.id == runner.id then
+                                        runner
+                                    else
+                                        r
+                                )
+                                model.runners
+                    in
+                        ( { model | runners = updatedRunners }, Cmd.none )
+
                 _ ->
                     ( { model
                         | error = Just ("Unrecognized message: " ++ name)
