@@ -11,6 +11,7 @@ import Time
 import Date
 import Date.Extra.Format as DateFormat
 import Date.Extra.Config.Config_en_us as DateConfig
+import String
 
 
 -- model
@@ -37,7 +38,8 @@ type alias RunnerWsMsg =
 
 type alias Model =
     { error : Maybe String
-    , query : String
+    , searchQry : String
+    , searchTerm : Maybe String
     , runners : List Runner
     , active : Bool
     }
@@ -46,7 +48,8 @@ type alias Model =
 initModel : Model
 initModel =
     { error = Nothing
-    , query = ""
+    , searchQry = ""
+    , searchTerm = Nothing
     , runners = []
     , active = False
     }
@@ -168,11 +171,18 @@ tick model time =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        SearchInput query ->
-            ( { model | query = query }, Cmd.none )
+        SearchInput searchQry ->
+            ( { model | searchQry = searchQry }, Cmd.none )
 
         Search ->
-            ( model, Cmd.none )
+            let
+                searchTerm =
+                    if String.isEmpty model.searchQry then
+                        Nothing
+                    else
+                        Just model.searchQry
+            in
+                ( { model | searchTerm = searchTerm }, Cmd.none )
 
         WsMessage wsMsg ->
             wsMessage wsMsg model
@@ -199,12 +209,12 @@ errorPanel error =
 
 
 searchForm : String -> Html Msg
-searchForm query =
+searchForm searchQry =
     Html.form [ onSubmit Search ]
         [ input
             [ type_ "text"
             , placeholder "Search for runner..."
-            , value query
+            , value searchQry
             , onInput SearchInput
             ]
             []
@@ -274,9 +284,29 @@ runnersHeader =
         ]
 
 
+descComparison : Runner -> Runner -> Order
+descComparison a b =
+    case compare a.estimatedDistance b.estimatedDistance of
+        LT ->
+            GT
+
+        EQ ->
+            EQ
+
+        GT ->
+            LT
+
+
 runners : Model -> Html Msg
-runners { query, runners } =
+runners { searchQry, runners, searchTerm } =
     runners
+        |> List.filter
+            (\r ->
+                searchTerm
+                    |> Maybe.map (\st -> String.contains st r.name)
+                    |> Maybe.withDefault True
+            )
+        |> List.sortWith descComparison
         |> List.map runner
         |> tbody []
         |> (\r -> runnersHeader :: [ r ])
@@ -287,7 +317,7 @@ view : Model -> Html Msg
 view model =
     div [ class "main" ]
         [ errorPanel model.error
-        , searchForm model.query
+        , searchForm model.searchQry
         , runners model
         ]
 
