@@ -76,7 +76,7 @@ listenRunnersCmd =
 
 init : ( Model, Cmd Msg )
 init =
-    ( initModel, listenRunnersCmd )
+    ( initModel, Cmd.none )
 
 
 
@@ -88,6 +88,7 @@ type Msg
     | Search
     | WsMessage String
     | Tick Time.Time
+    | ToggleWS
 
 
 runnerDecoder : JD.Decoder Runner
@@ -117,7 +118,18 @@ wsMessage wsMsg model =
         Ok { name, runner } ->
             case name of
                 "new runner" ->
-                    ( { model | runners = runner :: model.runners }, Cmd.none )
+                    let
+                        newRunners =
+                            List.filter
+                                (\r ->
+                                    if r.id == runner.id then
+                                        False
+                                    else
+                                        True
+                                )
+                                model.runners
+                    in
+                        ( { model | runners = runner :: newRunners }, Cmd.none )
 
                 "update runner" ->
                     let
@@ -189,6 +201,16 @@ update msg model =
 
         Tick time ->
             ( tick model time, Cmd.none )
+
+        ToggleWS ->
+            let
+                nextCmd =
+                    if model.active then
+                        Cmd.none
+                    else
+                        listenRunnersCmd
+            in
+                ( { model | active = (not model.active) }, nextCmd )
 
 
 
@@ -313,12 +335,26 @@ runners { searchQry, runners, searchTerm } =
         |> table []
 
 
+wsToggle : Model -> Html Msg
+wsToggle { active } =
+    let
+        btnText =
+            if active then
+                "Disconnect"
+            else
+                "Connect"
+    in
+        Html.form [ onSubmit ToggleWS ]
+            [ button [ type_ "submit" ] [ text btnText ] ]
+
+
 view : Model -> Html Msg
 view model =
     div [ class "main" ]
         [ errorPanel model.error
         , searchForm model.searchQry
         , runners model
+        , wsToggle model
         ]
 
 
@@ -328,7 +364,14 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-        [ listen url WsMessage
-        , Time.every Time.second Tick
-        ]
+    let
+        wsCmd =
+            if model.active then
+                listen url WsMessage
+            else
+                Sub.none
+    in
+        Sub.batch
+            [ wsCmd
+            , Time.every Time.second Tick
+            ]
