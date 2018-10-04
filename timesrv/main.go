@@ -4,7 +4,7 @@ import (
 	"flag"
 	"net/http"
 
-	"github.com/codemodus/norm"
+	"github.com/codemodus/veva"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	flag.Parse()
 
 	var err error
-	if port, err = norm.Port(port); err != nil {
+	if port, err = veva.Port(port); err != nil {
 		log.Panic(err)
 	}
 
